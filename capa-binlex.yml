@@ -1,0 +1,31 @@
+general:
+    use_ida: false
+    threads: 8
+capa:
+    rules_path: rules
+    signatures_path: flirt\windows
+    discard_lib_rules: true
+    unwanted_rules:
+        - "contain obfuscated stackstrings"
+        - "encode data using XOR"
+binlex:
+    server_url: "http://127.0.0.1:5000/"
+    server_api: "39248239c8ed937d6333a41874f1c8e310c5070703af30c06e67b0d308cb82c5"
+    comparison:
+        database: "malware"
+        gnn_similarity_threshold: 0.75
+        size_ratio_threshold: 0.75
+        combined_ratio_threshold: 0.75
+        minhash_score_threshold: 0.75
+        limit: 3
+        ignore_unnamed: false
+output:
+    output_format: "markdown"
+    filename: "output.md"
+    hsl:
+        hue: 120
+        lightness: 60
+    weights:
+        gnn: 10
+        size: 6
+        minhash: 3
