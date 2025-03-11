@@ -1,31 +1,31 @@
 general:
-    use_ida: false
-    threads: 8
+    use_ida: false # use IDA disassembler for CAPA & Binlex
+    threads: 8 # number of threads to be used for multithreading operations in Binlex
 capa:
-    rules_path: rules
-    signatures_path: flirt\windows
-    discard_lib_rules: true
-    unwanted_rules:
+    rules_path: rules # Path to CAPA rules directory
+    signatures_path: flirt\windows # Path to directory containing FLIRT signatures (only for vivisect and PE files)
+    discard_lib_rules: true # Should the script discard matches from the CAPA library rules (common rule patterns, like allocate memory, etc) or not?
+    unwanted_rules: # Names of the specific rules whose matches will be discarded
         - "contain obfuscated stackstrings"
         - "encode data using XOR"
 binlex:
-    server_url: "http://127.0.0.1:5000/"
-    server_api: "39248239c8ed937d6333a41874f1c8e310c5070703af30c06e67b0d308cb82c5"
+    server_url: "http://127.0.0.1:5000/" # A URL to Binlex server
+    server_api: "39248239c8ed937d6333a41874f1c8e310c5070703af30c06e67b0d308cb82c5" # An API key to access Binlex server
     comparison:
-        database: "malware"
+        database: "malware" # A name of the Milvus database in which search for similar functions/basic blocks shall be performed
         gnn_similarity_threshold: 0.75
         size_ratio_threshold: 0.75
         combined_ratio_threshold: 0.75
         minhash_score_threshold: 0.75
-        limit: 3
-        ignore_unnamed: false
+        limit: 3 # How many top results (results with the highest GNN similarity score) shall be returned by Binlex server?
+        ignore_unnamed: false # Should the script ignore unnamed functions/basic blocks, e.g. not yet analyzed functions?
 output:
     output_format: "markdown"
-    filename: "output.md"
-    hsl:
+    filename: "output.md" # Filename is only used in case of markdown output
+    hsl: # Settings for HSL color that is used for coloring rows in Binlex results tables (making a gradient). Saturation represents similarity and is calculated based on the weights(confidence) values set below and the actual scores of each index (GNN, Minhash, Size)  
         hue: 120
         lightness: 60
-    weights:
+    weights: # or confidence which represents the trust given by the user for each similarity algorithm used  
         gnn: 10
         size: 6
         minhash: 3

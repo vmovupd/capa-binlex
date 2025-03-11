@@ -156,9 +156,9 @@ class Binary:
         extractor = capa.loader.get_extractor(
             Path(self.filepath), self.bformat.lower(), OS_AUTO, self.__capa_backend, signatures, should_save_workspace=False, disable_progress=True
         )
-        capabilities, counts = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=True)
-        meta = capa.loader.collect_metadata([], Path(self.filepath), self.bformat.lower(), OS_AUTO, [self.capa_rules], extractor, counts)    
-        capa_output = json.loads(capa.render.json.render(meta, rules, capabilities))
+        capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=True)
+        meta = capa.loader.collect_metadata([], Path(self.filepath), self.bformat.lower(), OS_AUTO, [self.capa_rules], extractor, capabilities)    
+        capa_output = json.loads(capa.render.json.render(meta, rules, capabilities.matches))
 
         # Convert Path variables to str and resolve the path
         self.capa_rules = self.capa_rules.resolve()._str
@@ -611,7 +611,6 @@ def main(args):
     else:
         binobj = Binary(args.file, args.ida)
         binobj.process_capa(args.rules, args.signatures)
-        binobj.capa_matches
         binobj.process_binlex(args.url, args.api)
         
         print(generate_output(
