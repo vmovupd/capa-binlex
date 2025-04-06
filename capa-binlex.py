@@ -209,7 +209,7 @@ class Binary:
 
     def process_binlex(self, server_url: str, server_api: str, database: str = "malware",
         gnn_similarity_threshold: float = 0.75, size_ratio_threshold: float = 0.75, combined_ratio_threshold: float = 0.75, minhash_score_threshold: float = 0.75, limit: int = 3, ignore_unnamed: bool = False):
-        """Identify capabilities in the binary using CAPA with given rules, FLIRT signatures (only for vivisect and PE) and write results to capa_matches
+        """Verify connection to Binlex server with specified URL, API key and database. Then for each basic block and function in capa_matches generate a numerical vector from control flow using GNN (Milvus in back end, provided by Binlex server). Next, conduct a vector search using GNN similarity threshold and return N number of results, defined by limit. After that, check if a basic block/function similarity scores for size, minhash and combined is above the threshold. If similarity scores are above the threshold, then add info about basic block/function to binlex_capa_results, otherwise - discard the basic block/function. If one basic block / function is triggered by several CAPA rules, then those will be checked only once for optimization purposes.
         
         Arguments:
             server_url (str):                       A URL to Binlex server
