@@ -11,9 +11,9 @@ class Binary:
         
         Initialized after calling process_capa:
         capa_rules (str):   Absolute path to the directory with CAPA rules
-        capa_flirt (str):      Absolute path to the directory with FLIRT signatures
+        capa_flirt (str):   Absolute path to the directory with FLIRT signatures
         
-        hashes (dict):          Hash values for the binary file from CAPA metadata. The key is hash function name and the value is the hash
+        hashes (dict):          Hash values for the binary file from CAPA metadata. The key is hash function's name and the value is the hash
         capa_matches (dict):    CAPA matches for each rule that was not filtered. The key is CAPA rule name and the value is list with the following elements: 
                                     - rule match addresses (list), 
                                     - static scope (str), 
@@ -26,9 +26,9 @@ class Binary:
 
         Initialized after calling render_md:
         markdown (str):     Markdown results of the processed binary. Output consists of metadata (file path, binary format, architecture, hashes) section and results for functions and/or basic blocks represented by two sections
-                            Each 'results' section contains two pie charts (Rules/Addresses with a Binlex match) as well as one or two tables: 
-                                (1) Binlex results for the CAPA matches which were found in Milvus database with statistic for search results and comparison scores; 
-                                (2) statistic for function/basic block from CAPA match with indcation whether or not it was found in Milvus database
+                            Each  section with results contains statistic on the amount of rules and objects (basic blocks/functions) with a Binlex matches as well as one or two tables (depending on whether there are any results or not): 
+                                (1) Binlex results for the CAPA matches which were found in Milvus database with obfuscation statistic for search results and comparison scores; 
+                                (2) obfuscation statistic retrieved via Binlex for function/basic block from CAPA match with indication whether or not it was found in Milvus database
                             If there is no CAPA matches for rules with function and/or basic blocks, then one or both sections won't be present in the output
     """
     from binlex.controlflow import Graph
@@ -89,7 +89,7 @@ class Binary:
                     elif (elf_machine == b'\x3E'): # x86_64
                         f, a, blf = "ELF", "amd64", self.ELF
                 
-                if (f == '' and a == ''): # Header may be corrupted as well
+                if (f == '' and a == ''): # Header may be corrupted as well, but it is not considered
                     print(f"Unsupported file format or architecture. File path: {self.filepath}")
                     sys.exit(1)
                 
@@ -133,8 +133,8 @@ class Binary:
         Arguments:
             rules_path (str):               A path to the CAPA rules to be used for capability identification
             signatures_path (str):          A path to the FLIRT signatures to be used for library functions identification; only for vivisect disassembler and PE format
-            discard_lib_rules (bool):       Whether to discard library rules in the results or not
-            unwanted_rules (list):          A list of rules which shall be discarded in the results
+            discard_lib_rules (bool):       Whether to discard CAPA library rules in the results or not
+            unwanted_rules (list):          A list of rules which shall be discarded in the results, for example rules to detect obfuscation
         
         Attributes initialized:
             public:
@@ -220,7 +220,7 @@ class Binary:
             minhash_score_threshold (float):        A threshold for Minhash score for a function/basic block to be considered
             combined_ratio_threshold (float):       A threshold for combined ratio (an average of Minhash and GNN scores) for a function/basic block to be considered
             limit (int):                            How many function/basic blocks shall be returned after performing search in Milvus database
-            ignore_unnamed (bool):                  Whether to ignore the functions/basic blocks without names or not ('name' column in Milvus is empty)
+            ignore_unnamed (bool):                  Whether to ignore the functions/basic blocks without names or not (if set, the function ignores those results that do not have 'name' column in Milvus filled with data)
         
         Attributes initialized:
             public:
@@ -342,7 +342,7 @@ class Binary:
                     combined_score = (search_result['score'] + minhash_score) / 2.0
                     if combined_score < combined_ratio_threshold:
                         continue
-
+                    
                     bl_addr_results.append({
                         # ID, timestamp and username are not used for markdown output
                         "id": search_result['id'],
@@ -350,6 +350,7 @@ class Binary:
                         "username": search_result['username'],
                         "name": search_result['name'],
                         "sha256": search_result['file_attributes']['sha256'],
+                        "file_family": search_result['file_attributes'].get('family', 'Unknown'),
                         "address": str(search_result_data['address']),
                         **(
                             {
@@ -368,12 +369,12 @@ class Binary:
                 searched_addr[(match_addr, rule_scope)] = bl_addr_results
                 bl_rule_result[str(hex(match_addr))] = bl_addr_results
             self.binlex_capa_results[capa_rulename] = bl_rule_result
-        
+
         if self.__ida:
             bl_file.close_database()
         
     def render_md(self, hue: int = 130, lightness: int = 50, gnn: int = 10, minhash: int = 6, size: int = 3):
-        """Construct Markdown output with pie charts and tables based on capa_matches and binlex_capa_results
+        """Construct Markdown output with info and tables based on capa_matches and binlex_capa_results
         
         Arguments:
             hue (int):          Number that represents hue of the color for gradient in Binlex result tables
@@ -384,9 +385,7 @@ class Binary:
         
         Attributes initialized:
             public:
-                binlex_capa_results, markdown
-            private:
-                binlex_cfg (Graph):         A control flow graph instance from Binlex for the processed file (only if ida - another private attribute - is True), otherwise it is already initialized in __init__
+                markdown
         """
         # Normalize the weights
         weigh_sum = gnn + minhash + size
@@ -396,81 +395,81 @@ class Binary:
         
         md_diagrams["function_bl_results"] = """<table border="1">
     <tr>
-        <th rowspan="3">Rule name</th>
-        <th rowspan="3">Address</th>
-        <th colspan="12">Binlex results</th>
+        <th rowspan="3"><center>Rule name</center></th>
+        <th rowspan="3"><center>Address</center></th>
+        <th colspan="12"><center>Binlex results</center></th>
     </tr>
     <tr>
-        <th rowspan="2">Name of the function</th>
-        <th rowspan="2">SHA256 of the sample</th>
-        <th rowspan="2">Address in the sample</th>
-        <th colspan="5">Obfuscation statistic</th>
-        <th colspan="4">Comparison scores</th>
+        <th rowspan="2"><center>Name of the function</center></th>
+        <th rowspan="2"><center>SHA256 of the sample</center></th>
+        <th rowspan="2"><center>Address in the sample</center></th>
+        <th colspan="5"><center>Obfuscation statistic</center></th>
+        <th colspan="4"><center>Comparison scores</center></th>
     </tr>
     <tr>
-        <th>Cyclomatic complexity</th>
-        <th>Number of instructions</th>
-        <th>Entropy</th>
-        <th>Average instructions per block</th>
-        <th>Size</th>
-        <th>GNN</th>
-        <th>Minhash</th>
-        <th>Combined</th>
-        <th>Size</th>
+        <th><center>Cyclomatic complexity</center></th>
+        <th><center>Number of instructions</center></th>
+        <th><center>Entropy</center></th>
+        <th><center>Average instructions per block</center></th>
+        <th><center>Size</center></th>
+        <th><center>GNN</center></th>
+        <th><center>Minhash</center></th>
+        <th><center>Combined</center></th>
+        <th><center>Size</center></th>
     </tr>\n"""
     
         md_diagrams["function_bl_stat"] = """<table border="1">
     <tr>
-        <th rowspan="2">Rule name</th>
-        <th rowspan="2">Address</th>
-        <th rowspan="2">Binlex search result</th>
-        <th colspan="5">Binlex stats</th>
+        <th rowspan="2"><center>Rule name</center></th>
+        <th rowspan="2"><center>Address</center></th>
+        <th rowspan="2"><center>Binlex search result</center></th>
+        <th colspan="5"><center>Obfuscation statistic</center></th>
     </tr>
     <tr>
-        <th>Cyclomatic complexity</th>
-        <th>Number of instructions</th>
-        <th>Entropy</th>
-        <th>Average instructions per block</th>
-        <th>Size</th>
+        <th><center>Cyclomatic complexity</center></th>
+        <th><center>Number of instructions</center></th>
+        <th><center>Entropy</center></th>
+        <th><center>Average instructions per block</center></th>
+        <th><center>Size</center></th>
     </tr>\n"""
     
         md_diagrams["basic block_bl_results"] = """<table border="1">
     <tr>
-        <th rowspan="3">Rule name</th>
-        <th rowspan="3">Address</th>
-        <th colspan="10">Binlex results</th>
+        <th rowspan="3"><center>Rule name</center></th>
+        <th rowspan="3"><center>Address</center></th>
+        <th colspan="10"><center>Binlex results</center></th>
     </tr>
     <tr>
-        <th rowspan="2">Name of the block</th>
-        <th rowspan="2">SHA256 of the sample</th>
-        <th rowspan="2">Address in the sample</th>
-        <th colspan="3">Obfuscation statistic</th>
-        <th colspan="4">Comparison scores</th>
+        <th rowspan="2"><center>Name of the block</center></th>
+        <th rowspan="2"><center>SHA256 of the sample</center></th>
+        <th rowspan="2"><center>Address in the sample</center></th>
+        <th colspan="3"><center>Obfuscation statistic</center></th>
+        <th colspan="4"><center>Comparison scores</center></th>
     </tr>
     <tr>
-        <th>Number of instructions</th>
-        <th>Entropy</th>
-        <th>Size</th>
-        <th>GNN</th>
-        <th>Minhash</th>
-        <th>Combined</th>
-        <th>Size</th>
+        <th><center>Number of instructions</center></th>
+        <th><center>Entropy</center></th>
+        <th><center>Size</center></th>
+        <th><center>GNN</center></th>
+        <th><center>Minhash</center></th>
+        <th><center>Combined</center></th>
+        <th><center>Size</center></th>
     </tr>\n"""
     
         md_diagrams["basic block_bl_stat"] = """<table border="1">
     <tr>
-        <th rowspan="2">Rule name</th>
-        <th rowspan="2">Address</th>
-        <th rowspan="2">Binlex search result</th>
-        <th colspan="3">Binlex stats</th>
+        <th rowspan="2"><center>Rule name</center></th>
+        <th rowspan="2"><center>Address</center></th>
+        <th rowspan="2"><center>Binlex search result</center></th>
+        <th colspan="3"><center>Obfuscation statistic</center></th>
     </tr>
     <tr>
-        <th>Number of instructions</th>
-        <th>Entropy</th>
-        <th>Size</th>
+        <th><center>Number of instructions</center></th>
+        <th><center>Entropy</center></th>
+        <th><center>Size</center></th>
     </tr>\n"""
         
-        # Used to build pie charts. 'matches' indicate amount of CAPA matches (addresses inside rules, not unique) for function/basic block rules, while 'rules' indicate amount of CAPA rules overall that has static scope of function/basic block
+        # Used to provide info about the results in each type of object. 'matches' indicate amount of CAPA matches (addresses inside rules, not unique) for function/basic block rules, while 'rules' indicate amount of CAPA rules overall that has static scope of function/basic block
         bl_match_counts = {
             "function": {"matches": 0, "no_bl_matches": 0, "rules": 0, "no_bl_rules": 0},
             "basic block": {"matches": 0, "no_bl_matches": 0, "rules": 0, "no_bl_rules": 0}
@@ -488,7 +487,7 @@ class Binary:
             for capa_addr, match_info in capa_rule_matches.items():
                 md_diagrams[f"{rule_scope}_bl_stat"] += f"""    <tr>
         <td{f">{rule_name}</td>\n        <td>{capa_addr}" if rule_matches == 1 else f" rowspan={rule_matches}>{rule_name}</td>\n        <td>{capa_addr}"  if first_iteration_rule else f">{capa_addr}"}</td>
-        <td style="background-color: {"#EC441C;\">Not Found" if len(match_info) == 1 else "lightgreen;\">Found"}</td>\n""" + self.create_bl_row_meta(match_info[0], is_function=(True if rule_scope == "function" else False))
+        <td style="background-color: {"lightcoral;\">Not Found" if len(match_info) == 1 else "lightgreen;\">Found"}</td>\n""" + self.create_bl_row_meta(match_info[0], is_function=(True if rule_scope == "function" else False))
                 first_iteration_rule = False
 
                 if len(match_info) == 1:
@@ -518,13 +517,16 @@ class Binary:
             md_diagrams[html] += "</table>"
 
         # Meta information goes first
-        md_output = f"# Meta information\nFile path: {self.filepath}\nFormat: {self.bformat}\nArchitecture: {self.barch}\n" + ''.join(f"{key.upper()}: {value}\n" for key, value in self.hashes.items()) + f"CAPA rules used: {self.capa_rules}\nFLIRT signatures used: {self.capa_flirt}\n"
+        md_output = f"# Meta information\nFile path: {self.filepath}\nExecutable format: {self.bformat}\nArchitecture: {self.barch}\n" + ''.join(f"{key.upper()}: {value}\n" for key, value in self.hashes.items()) + f"CAPA rules used: {self.capa_rules}\nFLIRT signatures used: {self.capa_flirt}\n"
         
         for scope in ["function", "basic block"]:
             if bl_match_counts[scope]['rules']:
-                pies = f"""```mermaid\npie showData title Rules with a Binlex match\n\t"Found" : {bl_match_counts[scope]["rules"] - bl_match_counts[scope]["no_bl_rules"]}\n\t"Not Found" : {bl_match_counts[scope]["no_bl_rules"]}\n```
-```mermaid\npie showData title Addresses with a Binlex match\n\t"Found" : {bl_match_counts[scope]["matches"] - bl_match_counts[scope]["no_bl_matches"]}\n\t"Not Found" : {bl_match_counts[scope]["no_bl_matches"]}\n```"""
-                md_output += f"# Results for {scope}s\n{pies}\n{f"{md_diagrams[f"{scope}_bl_results"]}\n" if "td" in md_diagrams[f"{scope}_bl_results"] else ""}{md_diagrams[f"{scope}_bl_stat"]}\n\n"
+                bl_found_rules = bl_match_counts[scope]["rules"] - bl_match_counts[scope]["no_bl_rules"]
+                bl_found_capa_matches = bl_match_counts[scope]["matches"] - bl_match_counts[scope]["no_bl_matches"]
+                
+                md_match_stat = f"**Rules with Binlex matches**: <span style=\"color:green\">**{bl_found_rules} ({(bl_found_rules/bl_match_counts[scope]["rules"])* 100}%) found**</span> and <span style=\"color:red\">**{bl_match_counts[scope]["no_bl_rules"]} ({(bl_match_counts[scope]["no_bl_rules"]/bl_match_counts[scope]["rules"])* 100}%) not found**</span>\n**{scope.capitalize()}s with a Binlex matches**: <span style=\"color:green\">**{bl_found_capa_matches} ({(bl_found_capa_matches/bl_match_counts[scope]["matches"])* 100}%) found**</span> and <span style=\"color:red\">**{bl_match_counts[scope]["no_bl_matches"]} ({(bl_match_counts[scope]["no_bl_matches"]/bl_match_counts[scope]["matches"]) * 100}%) not found**</span>\n"
+
+                md_output += f"# Results for {scope}s\n{md_match_stat}\n{f"{md_diagrams[f"{scope}_bl_results"]}\n" if "td" in md_diagrams[f"{scope}_bl_results"] else ""}{md_diagrams[f"{scope}_bl_stat"]}\n\n"
         
         self.markdown = md_output
 
@@ -543,7 +545,7 @@ class Binary:
             str:    Created row for table with Binlex search results
         """
         return f"""        <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["name"]}</td>
-        <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["sha256"]}</td>
+        <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["sha256"]} <center><b>{f"<font color=\"#dc143c\">{blsearch_match["file_family"]}</font>" if blsearch_match["file_family"] != "Unknown" else "Unknown"}</center></b></td>
         <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["address"]}</td>{f"""\n        <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["cyclomatic_complexity"]}</td>""" if is_function else ""}
         <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["number_of_instructions"]}</td>
         <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["entropy"]}</td>{f"""\n        <td style="background: hsl({hue}, {saturation}%, {lightness}%);">{blsearch_match["average_instructions_per_block"]}</td>""" if is_function else ""}
@@ -556,7 +558,7 @@ class Binary:
     
     @staticmethod
     def create_bl_row_meta(blstat: dict, is_function: bool) -> str:
-        """Creates a row for table with Binlex statistic
+        """Creates a row for table with obfuscation statistic from Binlex
         
         Arguments:
             blstat (dict):          A dictionary which holds statistic from Binlex on the function/basic block
