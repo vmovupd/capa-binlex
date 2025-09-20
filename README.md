@@ -6,6 +6,9 @@ capa-binlex is a script that:
 
 The script can be used to speed up malware analysis and help in classification of malware samples by identifying code reusage.
 
+The diagram below illustrates how the script works.
+![](how_it_works.jpg "How it works")
+
 # Dependencies
 [CAPA](https://github.com/mandiant/capa) version 9.1.0 used through flare-capa module. 
 [Binlex](https://github.com/c3rb3ru5d3d53c/binlex) in a form of:
